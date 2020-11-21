@@ -1,37 +1,32 @@
 import json
 from json.decoder import JSONDecodeError
 from typing import Dict
-from socketserver import BaseRequestHandler, TCPServer
+from flask import Flask, request
+import urllib.request
 
 
-class HydraMaster(BaseRequestHandler):
+class HydraMaster:
     def __init__(self, host: str, port: int, data_path: str = 'hydra.json'):
         self._path = data_path
         self.data: Dict = dict()
-        self.slaves: Dict[(str, bool)] = dict()
+        self._slaves: Dict[(str, bool)] = dict()
+        self.load()
 
-    def handle(self) -> None:
-        print(self.client_address)
-        while True:
-            msg = self.request.recv(8192)
-            if not msg:
-                break
-            self.request.send(msg)
-
-    def load(self):
+    def load(self) -> None:
         with open(self._path, 'a+') as f:
             try:
                 self.data = json.load(f)
             except JSONDecodeError:
                 pass
 
-    def dump(self):
+    def dump(self) -> None:
         with open(self._path, 'w') as f:
             json.dump(self.data, f)
 
     def set(self, k: str, v):
         self.data[k] = v
         self.dump()
+        self.send_wal_record_to_slaves(k, v)
 
     def delete(self, k: str):
         self.data.pop(k)
@@ -46,13 +41,21 @@ class HydraMaster(BaseRequestHandler):
     def _get_all_serialize(self):
         return {'keys': [k for k in self.data]}
 
-    def register_slave(self, addr: str):
+    def register_slave(self, addr: str) -> (bool, str):
         # Adds to slaves but not connected
-        self.slaves[addr] = False
-        self.create_slave_connection()
+        if addr in self._slaves.keys():
+            return False, "Slave already registered"
+        self._slaves[addr] = False
+        return True, "Registered Slave"
 
-    def create_slave_connection(self):
-        pass
+    def send_wal_record_to_slaves(self, k, v):
+        for slave in self._slaves:
+            req = urllib.request.Request("http://{}/hydra/api/wal".format(slave))
+            req.add_header('Content-Type', 'application/json; charset=utf-8')
+            jsondata = json.dumps({k: v})
+            jsondataasbytes = jsondata.encode('utf-8')  # needs to be bytes
+            req.add_header('Content-Length', len(jsondataasbytes))
+            response = urllib.request.urlopen(req, jsondataasbytes)
 
 
 def run():
@@ -62,12 +65,36 @@ def run():
     parser.add_argument('-port', dest='port', action='store')
     args = parser.parse_args()
 
-    serv = TCPServer(('', 20000), HydraMaster)
-    serv.serve_forever()
+
+app = Flask(__name__)
+
+
+@app.before_first_request
+def load_global_data():
+    global hydra
+    hydra = HydraMaster('', 0)
+
+
+@app.route('/hydra/api/register', methods=['POST'])
+def register_slave():
+    request_json = request.get_json()
+    host = request_json['host']
+    port = request_json['port']
+    reg_state, reg_msg = hydra.register_slave("{}:{}".format(host, port))
+    if reg_state:
+        return reg_msg
+    return reg_msg
+
+
+@app.route('/hydra/api/<string:key>', methods=['PUT'])
+def put_key(key: str):
+    value = request.get_data()
+    hydra.set(key, value.decode('utf-8'))
+    return "OK"
 
 
 if __name__ == "__main__":
-    run()
+    app.run(debug=True, host="0.0.0.0", port=3000)
 
 
 class HydraConnector:
