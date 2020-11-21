@@ -71,7 +71,7 @@ def run():
 if __name__ == "__main__":
     HOST, PORT = "localhost", 3000
     with HydraMaster((HOST, PORT), HydraHandler) as hydra:
-        pass
+        hydra.serve_forever()
 
 
 class HydraConnector:
