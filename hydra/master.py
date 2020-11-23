@@ -14,36 +14,37 @@ class HydraHandler(BaseRequestHandler):
 
 
 class HydraMaster(TCPServer):
-    _rpc_methods_ = ['set']
+    _rpc_methods_ = ['set', 'delete']
 
     def __init__(self, server_addr, rhc, data_path: str = 'hydra.json'):
         super().__init__(server_addr, rhc)
-        self._serv = SimpleXMLRPCServer((server_addr[0], 3010), allow_none=True)
-        for name in self._rpc_methods_:
-            self._serv.register_function(getattr(self, name))
-
         self._path = data_path
         self.data: Dict = dict()
         self._slaves: Dict[(str, bool)] = dict()
         self.load()
         self._addr = server_addr
 
+        self._serv = SimpleXMLRPCServer(('localhost', 3010), allow_none=True)
+        for name in self._rpc_methods_:
+            self._serv.register_function(getattr(self, name))
+        self._serv.serve_forever()
+
     def load(self) -> None:
-        with open(self._path, 'a+') as f:
+        with open(self._path, 'r') as f:
             try:
                 self.data = json.load(f)
             except JSONDecodeError:
                 pass
 
     def dump(self) -> None:
-        with open(self._path, 'a+') as f:
+        with open(self._path, 'w') as f:
             json.dump(self.data, f)
 
     def set(self, k: str, v):
         print("HIT")
         self.data[k] = v
         self.dump()
-        self.send_wal_record_to_slaves(k, v)
+        self.send_wal_record_to_slaves(k, v)  
 
     def delete(self, k: str):
         self.data.pop(k)
@@ -94,8 +95,6 @@ if __name__ == "__main__":
     with HydraMaster((HOST, PORT), HydraHandler) as hydra:
         hydra: HydraMaster
         hydra.serve_forever()
-
-
 
 
 class HydraConnector:
