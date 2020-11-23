@@ -1,10 +1,20 @@
 from typing import Dict
-from flask import Flask, request
 import urllib.request
 import json
+from socketserver import TCPServer
+from socketserver import BaseRequestHandler
 
-class HydraSlave:
-    def __init__(self, slave_url: str, master_url):
+
+class HydraSlaveHandler(BaseRequestHandler):
+    def handle(self) -> None:
+        # noinspection PyTypeChecker
+        hs: HydraSlave = self.server
+        data = self.data
+        print(data)
+
+
+class HydraSlave(TCPServer):
+    def __init__(self, server_addr, rhc, slave_url: str, master_url):
         self.url = slave_url
         self.master_url = master_url
         self.data: Dict = dict()
@@ -20,6 +30,9 @@ class HydraSlave:
         req.add_header('Content-Length', len(jsondataasbytes))
         response = urllib.request.urlopen(req, jsondataasbytes)
 
+    def read_wal(self, wal):
+        pass
+
     def set(self, k: str, v):
         self.data[k] = v
         print(self.data)
@@ -28,22 +41,21 @@ class HydraSlave:
         pass
 
 
-app = Flask(__name__)
-hydra = HydraSlave('', 0)
-hydra.connect_to_master()
+def init():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run hydra master server")
+    parser.add_argument('-host', dest='host', action='store')
+    parser.add_argument('-port', dest='port', action='store')
+    parser.add_argument('-master', dest='master_url', action='store')
+    return parser.parse_args()
 
 
-@app.route('/hydra/api/<string:key>', methods=['PUT'])
-def put_key(key: str):
-    value = request.get_data()
-    hydra.set(key, value.decode('utf-8'))
-    return "OK"
+def run():
+    args = init()
+    HOST, PORT, MASTER = args
+    with HydraSlave((HOST, PORT), HydraSlave) as hydra_slave:
+        hydra_slave.serve_forever()
 
 
-@app.route('/hydra/api/wal', methods=['POST'])
-def wal_update():
-    value = request.get_data()
-    print(value)
-    return "OK"
-
-
+if __name__ == "__main__":
+    run()

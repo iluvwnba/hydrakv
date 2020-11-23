@@ -2,23 +2,31 @@ import json
 from json.decoder import JSONDecodeError
 from typing import Dict
 from socketserver import TCPServer, BaseRequestHandler
+import socket
+from xmlrpc.server import SimpleXMLRPCServer
 
 
 class HydraHandler(BaseRequestHandler):
     def handle(self) -> None:
-        pass
+        # noinspection PyTypeChecker
+        h: HydraMaster = self.server
+        h.register_slave(self.client_address)
 
 
 class HydraMaster(TCPServer):
+    _rpc_methods_ = ['set']
+
     def __init__(self, server_addr, rhc, data_path: str = 'hydra.json'):
         super().__init__(server_addr, rhc)
+        self._serv = SimpleXMLRPCServer((server_addr[0], 3010), allow_none=True)
+        for name in self._rpc_methods_:
+            self._serv.register_function(getattr(self, name))
+
         self._path = data_path
         self.data: Dict = dict()
         self._slaves: Dict[(str, bool)] = dict()
         self.load()
-
-    def handle(self) -> None:
-        pass
+        self._addr = server_addr
 
     def load(self) -> None:
         with open(self._path, 'a+') as f:
@@ -28,10 +36,11 @@ class HydraMaster(TCPServer):
                 pass
 
     def dump(self) -> None:
-        with open(self._path, 'w') as f:
+        with open(self._path, 'a+') as f:
             json.dump(self.data, f)
 
     def set(self, k: str, v):
+        print("HIT")
         self.data[k] = v
         self.dump()
         self.send_wal_record_to_slaves(k, v)
@@ -53,11 +62,23 @@ class HydraMaster(TCPServer):
         # Adds to slaves but not connected
         if addr in self._slaves.keys():
             return False, "Slave already registered"
-        self._slaves[addr] = False
+        self._slaves[addr] = True
         return True, "Registered Slave"
 
     def send_wal_record_to_slaves(self, k, v):
-        pass
+        test = {
+            "id": 1,
+            "operation": "type",
+            "data": "associated data"
+        }
+        for slave, alive in self._slaves.items():
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind(self._addr)
+                if alive:
+                    sock.connect(slave)
+                    sock.sendall(bytes(json.dumps(test)))
+                    recv = sock.recv(1024).decode("utf-8")
+                    print(recv)
 
 
 def run():
@@ -71,7 +92,10 @@ def run():
 if __name__ == "__main__":
     HOST, PORT = "localhost", 3000
     with HydraMaster((HOST, PORT), HydraHandler) as hydra:
+        hydra: HydraMaster
         hydra.serve_forever()
+
+
 
 
 class HydraConnector:
