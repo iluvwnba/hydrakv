@@ -24,7 +24,7 @@ class HydraMaster(TCPServer):
         self.load()
         self._addr = server_addr
 
-        self._serv = SimpleXMLRPCServer(('localhost', 3010), allow_none=True)
+        self._serv = SimpleXMLRPCServer(('localhost', 3110), allow_none=True)
         for name in self._rpc_methods_:
             self._serv.register_function(getattr(self, name))
         self._serv.serve_forever()
@@ -96,13 +96,3 @@ if __name__ == "__main__":
         hydra: HydraMaster
         hydra.serve_forever()
 
-
-class HydraConnector:
-    def __init__(self):
-        pass
-
-    def get_read_connection(self):
-        pass
-
-    def get_write_connection(self):
-        pass
