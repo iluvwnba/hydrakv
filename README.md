@@ -5,6 +5,8 @@ HydraKV is a simple key value store for learning purposes.
 
 Longer term learning opportunities include having read only distributed slaves
 
+![Sketch](sketch.png)
+
 ## Operations 
 - PUT -> Put key and value into dataset
 - GET -> Get value from dataset

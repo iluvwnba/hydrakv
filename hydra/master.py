@@ -41,7 +41,6 @@ class HydraMaster(TCPServer):
             json.dump(self.data, f)
 
     def set(self, k: str, v):
-        print("HIT")
         self.data[k] = v
         self.dump()
         self.send_wal_record_to_slaves(k, v)  
@@ -66,11 +65,12 @@ class HydraMaster(TCPServer):
         self._slaves[addr] = True
         return True, "Registered Slave"
 
-    def send_wal_record_to_slaves(self, k, v):
+    def send_wal_record_to_slaves(self, operation, k, v):
         test = {
             "id": 1,
             "operation": "type",
-            "data": "associated data"
+            "key": "<KEY>",
+            "value": "<VALUE>"
         }
         for slave, alive in self._slaves.items():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
