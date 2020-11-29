@@ -1,9 +1,15 @@
 # hydrakv
 
+## 29/11 update
+- Focus moved from distribution of work to the storage and retrieval aspects of db design
+- Will look to implement a WAL and scalable storage platform
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
 
 HydraKV is a simple key value store for learning purposes.
 
 Longer term learning opportunities include having read only distributed slaves
+
 
 ![Sketch](sketch.png)
 
@@ -15,6 +21,9 @@ Longer term learning opportunities include having read only distributed slaves
 
 
 ## TODO
+- Write ahead log
+- Remove JSON and have hydra storage 'engine'
+- Separate DB server elements from public API elements
 - Multiple Datasets 
 - ~~LOAD from JSON~~
 - ~~DUMP to JSON~~
@@ -26,9 +35,8 @@ Longer term learning opportunities include having read only distributed slaves
 - ~~Figure out how to do operators while checkpointing to file~~
     - Optimise?
 - ~~Get all operator~~
-- Write ahead log?
-- Master write
-- Slave read 
+- ~~Master write~~
+- ~~Slave read~~ 
 
 ## Distribution
 ### Master
